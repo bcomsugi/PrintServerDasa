@@ -167,7 +167,15 @@ def printToPrinter(dt:dict, activePrinter):
     # # sheet1.to_pdf()
     # # sheet1.range("NamedRange")
 
-def get_active_printer():
+def get_active_printer():   # todo:whatif no active printer. add error checking
+    config = configparser.ConfigParser()
+    config.read("printserver.ini")
+    config_sections = config.sections()
+    print(config.sections())
+    if 'Selection Printer' in config_sections:
+        config_selection_printer = config['Selection Printer']
+        activePrinter = config_selection_printer.get('Active_Printer', "Microsoft Print to PDF")
+        print(f'{activePrinter = }')
     return activePrinter
 
 if __name__ == "__main__":
