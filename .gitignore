@@ -143,3 +143,4 @@ venv.bak/
 .idea/*
 
 printserver.ini
+*.ini
