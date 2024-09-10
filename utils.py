@@ -2,7 +2,16 @@ import xlwings as xw
 import win32print
 import json
 import math
+import configparser
 
+config = configparser.ConfigParser()
+config.read("printserver.ini")
+config_sections = config.sections()
+print(config.sections())
+if 'Selection Printer' in config_sections:
+    config_selection_printer = config['Selection Printer']
+    activePrinter = config_selection_printer.get('Active_Printer', "Microsoft Print to PDF")
+    print(f'{activePrinter = }')
 
 def get_available_printer_names():
     printer_names = []
@@ -19,7 +28,7 @@ def get_available_printer_names():
     
     return printer_names
 
-def printToPrinter(dt:dict):
+def printToPrinter(dt:dict, activePrinter):
     filename = "Packing list-023-2.xlsx"
     filename = "template_packinglist.xlsx"
     filename = "packinglist.xlsx"
@@ -134,7 +143,10 @@ def printToPrinter(dt:dict):
     for i in range(total_page):
         ws_print = sheet_choice.get(str(i + 1))
         # ws_print.select()
-        res = ws_print.range("a1:g20").api.PrintOut(ActivePrinter="Microsoft Print to PDF")
+        print(f'{activePrinter = }')
+        if activePrinter == None:
+            activePrinter = "Microsoft Print to"
+        res = ws_print.range("a1:g20").api.PrintOut(ActivePrinter=activePrinter)
         print(f'{res = }')
 
 
@@ -155,13 +167,32 @@ def printToPrinter(dt:dict):
     # # sheet1.to_pdf()
     # # sheet1.range("NamedRange")
 
+def get_active_printer():
+    return activePrinter
+
 if __name__ == "__main__":
     available_printers = get_available_printer_names()
     if available_printers:
         print("Available printers:")
-        for printer_name in available_printers:
-            print(printer_name)
-            pass
+        config['Printer List']={}
+        for idx, printer_name in enumerate(available_printers):
+            print(f'{idx}: {printer_name}')
+            config['Printer List'][str(idx)]=printer_name
+        print("x: Exit")
+        while 1:
+            selectedPrinter = input('Choose Which Printer : ')
+            if selectedPrinter.lower()=='x' or selectedPrinter.lower()=='q':
+                break
+            if selectedPrinter.isdecimal():
+                if 0 <= int(selectedPrinter) < len(available_printers):
+                    activePrinter = config.get('Printer List', selectedPrinter)
+                    print(f"{activePrinter} is Selected as Active Printer")
+                    break
+        config['Selection Printer']['Active_Printer'] = activePrinter
+
+        with open('printserver.ini', 'w') as configFile:
+            config.write(configFile)
+
     else:
         print("No printers found.")
 
@@ -169,5 +200,4 @@ if __name__ == "__main__":
                                                                                                                                          {'ItemRef_FullName': 'TACO:W:TH-001AA', 'Quantity': 3, 'InLineMemo': 'Krian'}, {'ItemRef_FullName': 'TACO:G_D:TH-011G', 'Quantity': 1, 'InLineMemo': None}, {'ItemRef_FullName': 'TACO:W:TH-001AA', 'Quantity': 4, 'InLineMemo': None},
                                                                                                                                          {'ItemRef_FullName': 'TACO:W:TH-001AA', 'Quantity': 3, 'InLineMemo': 'Krian'}, {'ItemRef_FullName': 'TACO:G_D:TH-011G', 'Quantity': 1, 'InLineMemo': None}, {'ItemRef_FullName': 'TACO:W:TH-001AA', 'Quantity': 4, 'InLineMemo': None},
                                                                                                                                          {'ItemRef_FullName': 'TACO:W:TH-001AA', 'Quantity': 3, 'InLineMemo': 'Krian'}, {'ItemRef_FullName': 'TACO:G_D:TH-011G', 'Quantity': 1, 'InLineMemo': None}, {'ItemRef_FullName': 'TACO:W:TH-001AA', 'Quantity': 4, 'InLineMemo': None}]}
-    # printToPrinter(dt)
-    
+    # printToPrinter(dt, activePrinter)
