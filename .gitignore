@@ -141,3 +141,5 @@ venv.bak/
 .mypy_cache/
 
 .idea/*
+
+printserver.ini
