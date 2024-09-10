@@ -188,6 +188,8 @@ if __name__ == "__main__":
                     activePrinter = config.get('Printer List', selectedPrinter)
                     print(f"{activePrinter} is Selected as Active Printer")
                     break
+        if 'Selection Printer' not in config.sections():
+            config['Selection Printer'] = {}
         config['Selection Printer']['Active_Printer'] = activePrinter
 
         with open('printserver.ini', 'w') as configFile:
