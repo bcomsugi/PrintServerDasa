@@ -138,7 +138,7 @@ def printToPrinter(dt:dict, activePrinter):
             ws_print.range(f'B{idx+start_itemline}').value = line.get('Quantity')
             ws_print.range(f'C{idx+start_itemline}').value = "U/M"
             ws_print.range(f'D{idx+start_itemline}').value = line.get('Quantity')
-            ws_print.range(f'F{idx+start_itemline}').value = line.get('InLineMemo')
+            ws_print.range(f'E{idx+start_itemline}').value = line.get('InLineMemo')
 ### Printto any Printer(set ActivePrinter)
     for i in range(total_page):
         ws_print = sheet_choice.get(str(i + 1))
