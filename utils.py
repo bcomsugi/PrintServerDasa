@@ -136,8 +136,8 @@ def printToPrinter(dt:dict, activePrinter):
         for idx, line in enumerate(lines):
             ws_print.range(f'A{idx+start_itemline}').value = line.get('ItemRef_FullName').split(":")[-1]
             ws_print.range(f'B{idx+start_itemline}').value = line.get('Quantity')
-            ws_print.range(f'C{idx+start_itemline}').value = "U/M"
-            ws_print.range(f'D{idx+start_itemline}').value = line.get('Quantity')
+            ws_print.range(f'C{idx+start_itemline}').value = line.get('UOM')
+            ws_print.range(f'D{idx+start_itemline}').value = ''
             ws_print.range(f'E{idx+start_itemline}').value = line.get('InLineMemo')
 ### Printto any Printer(set ActivePrinter)
     for i in range(total_page):
