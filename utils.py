@@ -132,6 +132,16 @@ def printToPrinter(dt:dict, activePrinter):
             ws_print.api.UsedRange.Replace("[billaddress4]", dt.get('BillAddress4'))
         else:
             ws_print.api.UsedRange.Replace("[billaddress4]", "")
+        if dt.get("PrintCount", None):
+            if dt['PrintCount']>0:
+                ws_print.api.UsedRange.Replace("[reprint]", "Re-Print")
+                dot = ""
+                for x in range(dt['PrintCount']):
+                    dot = dot + "."
+                ws_print.api.UsedRange.Replace("[count]", dot)
+        else:
+            ws_print.api.UsedRange.Replace("[reprint]", "")
+            ws_print.api.UsedRange.Replace("[count]", "")
         print(f"header finish {i + 1}")
         for idx, line in enumerate(lines):
             ws_print.range(f'A{idx+start_itemline}').value = line.get('ItemRef_FullName').split(":")[-1]
