@@ -132,6 +132,10 @@ def printToPrinter(dt:dict, activePrinter):
             ws_print.api.UsedRange.Replace("[billaddress4]", dt.get('BillAddress4'))
         else:
             ws_print.api.UsedRange.Replace("[billaddress4]", "")
+        if dt.get("DT", None):
+            ws_print.api.UsedRange.Replace("[dt]", dt.get('DT'))
+        else:
+            ws_print.api.UsedRange.Replace("[dt]", "")
         if dt.get("PrintCount", None):
             if dt['PrintCount']>0:
                 ws_print.api.UsedRange.Replace("[reprint]", "Re-Print")
