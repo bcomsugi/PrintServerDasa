@@ -148,11 +148,11 @@ def printToPrinter(dt:dict, activePrinter):
             ws_print.api.UsedRange.Replace("[count]", "")
         print(f"header finish {i + 1}")
         for idx, line in enumerate(lines):
-            ws_print.range(f'A{idx+start_itemline}').value = line.get('ItemRef_FullName').split(":")[-1]
-            ws_print.range(f'B{idx+start_itemline}').value = line.get('Quantity')
-            ws_print.range(f'C{idx+start_itemline}').value = line.get('UOM')
-            ws_print.range(f'D{idx+start_itemline}').value = ''
-            ws_print.range(f'E{idx+start_itemline}').value = line.get('InLineMemo')
+            ws_print.range(f'A{idx+start_itemline}').value = line.get('ItemRef_FullName',':noItem').split(":")[-1]
+            ws_print.range(f'B{idx+start_itemline}').value = line.get('Quantity', 'noQty')
+            ws_print.range(f'C{idx+start_itemline}').value = line.get('UOM', 'noUM')
+            ws_print.range(f'D{idx+start_itemline}').value = line.get('Rack', 'noRack')
+            ws_print.range(f'E{idx+start_itemline}').value = line.get('InLineMemo','noInline')
 ### Printto any Printer(set ActivePrinter)
     for i in range(total_page):
         ws_print = sheet_choice.get(str(i + 1))
