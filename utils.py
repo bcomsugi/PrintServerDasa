@@ -120,6 +120,12 @@ def printToPrinter(dt:dict, activePrinter):
         ws_print.api.UsedRange.Replace("[plno]", dt.get('pklist_ID'))
         ws_print.api.UsedRange.Replace("[date]", f"'{dt.get('TxnDate')}")
         ws_print.api.UsedRange.Replace("[customername]", dt.get('CustomerRef_FullName'))
+        if dt.get("ShipTo", None):
+            ws_print.api.UsedRange.Replace("[shipto]", "ShipTo")
+            ws_print.api.UsedRange.Replace("[shiptoval]", dt.get('ShipTo'))
+        else:
+            ws_print.api.UsedRange.Replace("[shipto]", "")
+            ws_print.api.UsedRange.Replace("[shiptoval]", "")
         if dt.get("BillAddress2", None):
             ws_print.api.UsedRange.Replace("[billaddress2]", dt.get('BillAddress2'))
         else:
