@@ -3,7 +3,9 @@ import json
 import logging
 from utils import printToPrinter, get_available_printer_names, get_active_printer
 
-logging.basicConfig(filename='printserver.log', filemode='a', format='%(asctime)s %(name)s %(levelname)s %(message)s', encoding='utf-8', level=logging.DEBUG)
+# logging.basicConfig(filename='printserver.log', filemode='a', format='%(asctime)s %(name)s %(levelname)s %(message)s', encoding='utf-8', level=logging.DEBUG)
+log_handler = logging.FileHandler(filename='printserver.log', encoding='utf-8')
+logging.basicConfig(handlers=[log_handler], level=logging.DEBUG)
 logging.debug("start")
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.DEBUG)
