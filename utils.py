@@ -3,6 +3,25 @@ import win32print
 import json
 import math
 import configparser
+import time
+
+import os
+import redis
+from dotenv import load_dotenv
+
+# Get the absolute path of the directory containing the current script (main.py)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the .env file in the child directory
+dotenv_path = os.path.join(current_dir, '.venv', 'win7_prod.env')
+print(dotenv_path)
+load_dotenv(dotenv_path=dotenv_path)
+# print(os.environ)
+# print(os.getenv("REDIS_SERVER"))
+redis_server_url = os.getenv("REDIS_SERVER")
+db = int(os.getenv('DB', "15"))
+redis_client = redis.Redis(host=redis_server_url, port=6379, db=db)
+
 
 config = configparser.ConfigParser()
 config.read("printserver.ini")
@@ -28,6 +47,55 @@ def get_available_printer_names():
     
     return printer_names
 
+def check_redis_cache(obj):
+    print(f'check_redis_cache->{obj = } {type(obj) = }')
+    dt = obj.get("DT","")
+    if not dt:
+        return None
+    cache_key = f"PLPRINT:{dt}"
+    data = redis_client.get(cache_key)
+    print(f'{cache_key = } {data = } {type(data)=}')
+    if data:
+        print(f"FOUND {cache_key = } {data = }")
+        return json.loads(data)
+    return None
+
+def set_redis_cache(obj):
+    print(f'set_redis_cache->{obj = } {type(obj) = }')
+    dt = obj.get("DT","")
+    if not dt:
+        return None
+    cache_key = f"PLPRINT:{dt}"
+    redis_client.set(cache_key, json.dumps(obj), ex=72000)
+    return
+    
+def check_printer_job(printer_name:str):
+    jobs = [1]
+    while[jobs]:
+        jobs = []
+        phandle = win32print.OpenPrinter(printer_name)
+        print_jobs = win32print.EnumJobs(phandle, 0, -1, 1)
+        printer_info = win32print.GetPrinter(phandle, 2)
+        print(f'{printer_info = }')
+        attribute = win32print.GetPrinter(phandle)[13]
+        print(f'{attribute = }')
+        print(f'{printer_info["Status"] = }')
+        if print_jobs:
+            jobs.extend(list(print_jobs))
+        else:
+            win32print.ClosePrinter(phandle)
+            break
+        for job in print_jobs:
+            print(f'{printer_name = }')
+            document = job.get("pDocument")
+            print(f'{document = }')
+        win32print.ClosePrinter(phandle)
+        time.sleep(4)
+    print("No More Jobs")
+    return
+
+
+
 def printToPrinter(dt:dict, activePrinter):
     filename = "Packing list-023-2.xlsx"
     filename = "template_packinglist.xlsx"
@@ -36,7 +104,7 @@ def printToPrinter(dt:dict, activePrinter):
     sheetNames = wb.sheet_names
     # sheet = xw.Book(filename).sheets[0]
     sheet1 = wb.sheets('Template')
-    print(wb.sheet_names)
+    print(f'{wb.sheet_names = }')
     if "print 1" not in sheetNames:
         sheet1.copy(after=sheet1, name="print 1")
     else:
@@ -120,28 +188,37 @@ def printToPrinter(dt:dict, activePrinter):
         ws_print.api.UsedRange.Replace("[plno]", dt.get('pklist_ID'))
         ws_print.api.UsedRange.Replace("[date]", f"'{dt.get('TxnDate')}")
         ws_print.api.UsedRange.Replace("[customername]", dt.get('CustomerRef_FullName'))
-        if dt.get("ShipTo", None):
+        # if dt.get("BillAddress1", None):
+        #     ws_print.api.UsedRange.Replace("[customername]", dt.get('BillAddress1'))
+        # else:
+        #     ws_print.api.UsedRange.Replace("[customername]", "")
+        if dt.get("ShipToDetail", {}):
             ws_print.api.UsedRange.Replace("[shipto]", "ShipTo")
-            ws_print.api.UsedRange.Replace("[shiptoval]", dt.get('ShipTo'))
+            ws_print.api.UsedRange.Replace("[shiptoval]", dt['ShipToDetail'].get('Addr1',""))
         else:
             ws_print.api.UsedRange.Replace("[shipto]", "")
             ws_print.api.UsedRange.Replace("[shiptoval]", "")
-        if dt.get("BillAddress2", None):
-            ws_print.api.UsedRange.Replace("[billaddress2]", dt.get('BillAddress2'))
-        else:
-            ws_print.api.UsedRange.Replace("[billaddress2]", "")
-        if dt.get("BillAddress3", None):
-            ws_print.api.UsedRange.Replace("[billaddress3]", dt.get('BillAddress3'))
-        else:
-            ws_print.api.UsedRange.Replace("[billaddress3]", "")
-        if dt.get("BillAddress4", None):
-            ws_print.api.UsedRange.Replace("[billaddress4]", dt.get('BillAddress4'))
-        else:
-            ws_print.api.UsedRange.Replace("[billaddress4]", "")
+        # if dt.get("BillAddress2", None):
+        #     ws_print.api.UsedRange.Replace("[billaddress2]", dt.get('BillAddress2'))
+        # else:
+        #     ws_print.api.UsedRange.Replace("[billaddress2]", "")
+        # if dt.get("BillAddress3", None):
+        #     ws_print.api.UsedRange.Replace("[billaddress3]", dt.get('BillAddress3'))
+        # else:
+        #     ws_print.api.UsedRange.Replace("[billaddress3]", "")
+        # if dt.get("BillAddress4", None):
+        #     ws_print.api.UsedRange.Replace("[billaddress4]", dt.get('BillAddress4'))
+        # else:
+        #     ws_print.api.UsedRange.Replace("[billaddress4]", "")
+        ws_print.api.UsedRange.Replace("[billaddress2]", "")
+        ws_print.api.UsedRange.Replace("[billaddress3]", "")
+        ws_print.api.UsedRange.Replace("[billaddress4]", "")
+        
         if dt.get("DT", None):
             ws_print.api.UsedRange.Replace("[dt]", dt.get('DT'))
         else:
             ws_print.api.UsedRange.Replace("[dt]", "")
+
         if dt.get("PrintCount", None):
             if dt['PrintCount']>0:
                 ws_print.api.UsedRange.Replace("[reprint]", "Re-Print")
@@ -156,7 +233,7 @@ def printToPrinter(dt:dict, activePrinter):
         for idx, line in enumerate(lines):
             ws_print.range(f'A{idx+start_itemline}').value = line.get('ItemRef_FullName',':noItem').split(":")[-1]
             ws_print.range(f'B{idx+start_itemline}').value = line.get('Quantity', 'noQty')
-            ws_print.range(f'C{idx+start_itemline}').value = line.get('UOM', 'noUM')
+            ws_print.range(f'C{idx+start_itemline}').value = line.get('UOM', 'noUOM')
             ws_print.range(f'D{idx+start_itemline}').value = line.get('Rack', 'noRack')
             ws_print.range(f'E{idx+start_itemline}').value = line.get('InLineMemo','noInline')
 ### Printto any Printer(set ActivePrinter)
@@ -168,6 +245,8 @@ def printToPrinter(dt:dict, activePrinter):
             activePrinter = "Microsoft Print to"
         res = ws_print.range("a1:g20").api.PrintOut(ActivePrinter=activePrinter)
         print(f'{res = }')
+        # check_printer_job(activePrinter)
+    return activePrinter
 
 
 
@@ -187,19 +266,25 @@ def printToPrinter(dt:dict, activePrinter):
     # # sheet1.to_pdf()
     # # sheet1.range("NamedRange")
 
-def get_active_printer():   # todo:whatif no active printer. add error checking
+def get_active_printer(user:str):   # todo:whatif no active printer. add error checking
+    print(f'get_active_printer {user = }')
+    user = user.upper()
     config = configparser.ConfigParser()
     config.read("printserver.ini")
     config_sections = config.sections()
     print(config.sections())
+    
     if 'Selection Printer' in config_sections:
         config_selection_printer = config['Selection Printer']
         activePrinter = config_selection_printer.get('Active_Printer', "Microsoft Print to PDF")
+        if user:
+            activePrinter = config_selection_printer.get(user, activePrinter)
         print(f'{activePrinter = }')
     return activePrinter
 
 if __name__ == "__main__":
     available_printers = get_available_printer_names()
+    is_printer_selected = False
     if available_printers:
         print("Available printers:")
         config['Printer List']={}
@@ -207,15 +292,22 @@ if __name__ == "__main__":
             print(f'{idx}: {printer_name}')
             config['Printer List'][str(idx)]=printer_name
         print("x: Exit")
+        
         while 1:
             selectedPrinter = input('Choose Which Printer : ')
             if selectedPrinter.lower()=='x' or selectedPrinter.lower()=='q':
-                break
+                # break
+                print("Exit.... no Selected Printer. Bye")
+                exit()
             if selectedPrinter.isdecimal():
                 if 0 <= int(selectedPrinter) < len(available_printers):
                     activePrinter = config.get('Printer List', selectedPrinter)
                     print(f"{activePrinter} is Selected as Active Printer")
+                    is_printer_selected = True
                     break
+        if not is_printer_selected:
+            print("no Selected Printer. Bye")
+            exit()
         if 'Selection Printer' not in config.sections():
             config['Selection Printer'] = {}
         config['Selection Printer']['Active_Printer'] = activePrinter
