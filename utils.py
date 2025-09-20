@@ -8,7 +8,18 @@ import time
 import os
 import redis
 from dotenv import load_dotenv
+import segno
+import tempfile
+import shutil
+from loguru import logger
 
+
+
+# logger.debug("Harmless debug Message")
+
+# logger.warning("Its a Warning")
+# logger.error("Did you try to divide by zero")
+# logger.critical("Internet is down")
 # Get the absolute path of the directory containing the current script (main.py)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,27 +59,33 @@ def get_available_printer_names():
     return printer_names
 
 def check_redis_cache(obj):
-    print(f'check_redis_cache->{obj = } {type(obj) = }')
+    # print(f'check_redis_cache->{obj = } {type(obj) = }')
+    logger.info(f'{obj = } {type(obj) = }')
     dt = obj.get("DT","")
     if not dt:
         return None
-    cache_key = f"PLPRINT:{dt}"
+    pklist_id = obj.get("pklist_ID")
+    cache_key = f"PLPRINT:{pklist_id};{dt}"
     data = redis_client.get(cache_key)
-    print(f'{cache_key = } {data = } {type(data)=}')
+    logger.warning(f'{cache_key = } {data = } {type(data)=}')
     if data:
-        print(f"FOUND {cache_key = } {data = }")
+        logger.debug(f"FOUND {cache_key = } {data = }")
         return json.loads(data)
     return None
 
 def set_redis_cache(obj):
-    print(f'set_redis_cache->{obj = } {type(obj) = }')
     dt = obj.get("DT","")
     if not dt:
         return None
-    cache_key = f"PLPRINT:{dt}"
-    redis_client.set(cache_key, json.dumps(obj), ex=72000)
-    return
     
+    pklist_id = obj.get("pklist_ID")
+    # cache_key = f"PLPRINT:{dt}"
+    cache_key = f"PLPRINT:{pklist_id};{dt}"
+    
+    logger.warning(f'{cache_key = } {obj = } {type(obj) = }')
+    redis_client.set(cache_key, json.dumps(obj), ex=201)
+    return
+
 def check_printer_job(printer_name:str):
     jobs = [1]
     while[jobs]:
@@ -94,6 +111,27 @@ def check_printer_job(printer_name:str):
     print("No More Jobs")
     return
 
+def create_qr(dt:dict, page:int, totalpage:int):
+    pklist_id = dt.get('pklist_ID')
+    txn_date = dt.get('TxnDate')
+    dtime = dt.get('DT')
+    user = dt.get('User')
+    print_count = dt.get('PrintCount',-1)
+    customer_fullname = dt.get('CustomerRef_FullName')
+    lines = []
+    for itemline in dt.get('LineAdd'):
+        listlines_id = itemline.get('listlines_ID')
+        # item_shortname = itemline.get('ItemRef_FullName').split(':')[-1]
+        qty = itemline.get('Quantity')
+        lines.append((listlines_id, qty))
+    # string_to_encode = f'{pklist_id};{txn_date};{dtime};{user};{print_count};{page}/{totalpage};{customer_fullname};{json.dumps(lines)}'
+    string_to_encode = f'{pklist_id};{dtime};{user};{print_count}' #;{page}/{totalpage};{customer_fullname}'
+    logger.debug(f'{string_to_encode = }')
+
+    qrcode = segno.make(string_to_encode, error='M')    #L, M, Q, H
+    return qrcode
+
+
 
 
 def printToPrinter(dt:dict, activePrinter):
@@ -104,14 +142,18 @@ def printToPrinter(dt:dict, activePrinter):
     sheetNames = wb.sheet_names
     # sheet = xw.Book(filename).sheets[0]
     sheet1 = wb.sheets('Template')
-    print(f'{wb.sheet_names = }')
+    logger.debug(f'{dt = }')
+    user=dt.get('User')
+    logger.warning(f'{user = }')
+    childlogger = logger.bind(user=user)
+    childlogger.info(f'{wb.sheet_names = }')
     if "print 1" not in sheetNames:
         sheet1.copy(after=sheet1, name="print 1")
     else:
         wb.sheets('print 1').delete()
-        print(wb.sheet_names)
+        # childlogger.debug(f'{wb.sheet_names = }')
         sheet1.copy(after=sheet1, name="print 1")
-    print(wb.sheet_names)
+    childlogger.debug(f'{wb.sheet_names = }')
     # ws_print = wb.sheets('print 1')
 
     # lrow = sheet1.range('A' + str(sheet1.cells.last_cell.row)).end('up').row
@@ -171,7 +213,7 @@ def printToPrinter(dt:dict, activePrinter):
         lines.append(line)
     lines_choice[str(page)]=lines
     print(f'{lines_choice = }')
-
+    
 #fill data for loop range
     for i in range(total_page):
         ws_print = sheet_choice.get(str(i + 1))
@@ -236,16 +278,42 @@ def printToPrinter(dt:dict, activePrinter):
             ws_print.range(f'C{idx+start_itemline}').value = line.get('UOM', 'noUOM')
             ws_print.range(f'D{idx+start_itemline}').value = line.get('Rack', 'noRack')
             ws_print.range(f'E{idx+start_itemline}').value = line.get('InLineMemo','noInline')
-### Printto any Printer(set ActivePrinter)
-    for i in range(total_page):
+        
+    cur_dir = os.getcwd()
+    parent_dir=os.path.join(cur_dir, "temp")
+    # tmpdir_obj = tempfile.TemporaryDirectory().name
+    tmpdir_obj = tempfile.mkdtemp(dir=parent_dir)
+    tmpdir_path = ''
+    
+
+    ### Printto any Printer(set ActivePrinter)
+    childlogger.info(f"Printto any Printer {total_page = }")
+    for idx, i in enumerate(range(total_page)):
+        
         ws_print = sheet_choice.get(str(i + 1))
+        #print qr
+        qr = create_qr(dt, i+1, total_page)
+        # tmpdir_path = f'{tmpdir_obj}\qr{i}.svg'
+        tmpdir_path = os.path.join(cur_dir, tmpdir_obj, f'qr{i}.png')
+        print(f"{idx = } {tmpdir_path = }")
+        with open(tmpdir_path,'wb') as f:
+            qr.save(f, scale=1, border=2)
+            print("save sucess")
+        # ws_print.pictures.add(tmpdir_path, anchor=ws_print.range('f18'), format='svg')
+        destination_cell = ws_print.range('f18')
+        print('set destination', destination_cell)
+        ws_print.pictures.add(tmpdir_path, name="qrSVG", left=destination_cell.left, top=destination_cell.top, scale=3)
+        print("added pic")
+
         # ws_print.select()
-        print(f'{activePrinter = }')
+        childlogger.debug(f'page {idx = } {activePrinter = }')
         if activePrinter == None:
             activePrinter = "Microsoft Print to"
-        res = ws_print.range("a1:g20").api.PrintOut(ActivePrinter=activePrinter)
-        print(f'{res = }')
+        res = ws_print.range("a1:g22").api.PrintOut(ActivePrinter=activePrinter)
+        childlogger.debug(f'{idx = } {res = }')
         # check_printer_job(activePrinter)
+    shutil.rmtree(tmpdir_obj)
+    childlogger.info( f'temp dir removed: {tmpdir_obj}')
     return activePrinter
 
 
