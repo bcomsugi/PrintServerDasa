@@ -144,6 +144,7 @@ venv.bak/
 
 printserver.ini
 .ini
+*.ini
 *.conf
 
 test
