@@ -115,7 +115,8 @@ def create_qr(dt:dict, page:int, totalpage:int):
     pklist_id = dt.get('pklist_ID')
     txn_date = dt.get('TxnDate')
     dtime = dt.get('DT')
-    user = dt.get('User')
+    username = dt.get('User')
+    userid = dt.get('UserID')
     print_count = dt.get('PrintCount',-1)
     customer_fullname = dt.get('CustomerRef_FullName')
     lines = []
@@ -124,8 +125,11 @@ def create_qr(dt:dict, page:int, totalpage:int):
         # item_shortname = itemline.get('ItemRef_FullName').split(':')[-1]
         qty = itemline.get('Quantity')
         lines.append((listlines_id, qty))
-    # string_to_encode = f'{pklist_id};{txn_date};{dtime};{user};{print_count};{page}/{totalpage};{customer_fullname};{json.dumps(lines)}'
-    string_to_encode = f'{pklist_id};{dtime};{user};{print_count}' #;{page}/{totalpage};{customer_fullname}'
+    # string_to_encode = f'{pklist_id};{txn_date};{dtime};{username};{print_count};{page}/{totalpage};{customer_fullname};{json.dumps(lines)}'
+    if userid:
+        string_to_encode = f'{pklist_id};{dtime};{userid};{print_count};{page};{totalpage}' #;{page}/{totalpage};{customer_fullname}'
+    else:
+        string_to_encode = f'{pklist_id};{dtime};{username};{print_count};{page};{totalpage}' #;{page}/{totalpage};{customer_fullname}'
     logger.debug(f'{string_to_encode = }')
 
     qrcode = segno.make(string_to_encode, error='M')    #L, M, Q, H
@@ -143,9 +147,10 @@ def printToPrinter(dt:dict, activePrinter):
     # sheet = xw.Book(filename).sheets[0]
     sheet1 = wb.sheets('Template')
     logger.debug(f'{dt = }')
-    user=dt.get('User')
-    logger.warning(f'{user = }')
-    childlogger = logger.bind(user=user)
+    username=dt.get('User')
+    userid=dt.get('UserID')
+    logger.warning(f'{username = } {userid = }')
+    childlogger = logger.bind(user=username)
     childlogger.info(f'{wb.sheet_names = }')
     if "print 1" not in sheetNames:
         sheet1.copy(after=sheet1, name="print 1")
@@ -153,7 +158,7 @@ def printToPrinter(dt:dict, activePrinter):
         wb.sheets('print 1').delete()
         # childlogger.debug(f'{wb.sheet_names = }')
         sheet1.copy(after=sheet1, name="print 1")
-    childlogger.debug(f'{wb.sheet_names = }')
+    # childlogger.debug(f'{wb.sheet_names = }')
     # ws_print = wb.sheets('print 1')
 
     # lrow = sheet1.range('A' + str(sheet1.cells.last_cell.row)).end('up').row
